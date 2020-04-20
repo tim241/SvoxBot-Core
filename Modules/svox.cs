@@ -56,8 +56,11 @@ namespace SvoxBot.Modules
                     int read;
                     while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
                     {
-                        waveFileWriter.WriteData(buffer, 0, read);
+                        waveFileWriter.Write(buffer, 0, read);
                     }
+
+                    // flush the buffer
+                    waveFileWriter.Flush();
                 }
             }
         }
@@ -159,12 +162,12 @@ namespace SvoxBot.Modules
             {
                 processText(words[0], rest, rest); // Sends words down pipeline to get concatinated
                 await Context.Channel.SendFileAsync(rest + ".wav"); // Send the file
-                File.AppendAllText("log.txt", Context.User + " : " + rest + System.Environment.NewLine); // Add event to log
+                Console.WriteLine(Context.User + " : " + rest + System.Environment.NewLine); // Add event to log
             }
             else
             {
                 await ReplyAsync(processText(words[0], rest, rest)); // If it did Error, send error text to Discord
-                File.AppendAllText("log.txt", Context.User + " : " + processText(words[0], rest, rest) + System.Environment.NewLine);
+                Console.WriteLine(Context.User + " : " + processText(words[0], rest, rest) + System.Environment.NewLine);
             }
         }
 
