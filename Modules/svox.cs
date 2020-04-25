@@ -29,7 +29,12 @@ namespace SvoxBot.Modules
         }
 
 
-        // Combine the .WAV files
+        /// <summary>
+        /// Combines multiple WAV files
+        /// </summary>
+        /// <param name="sourceFiles">List of files that need to be combined</param>
+        /// <param name="context">SocketCommandContext for sending messages to discord channel</param>
+        /// <returns>MemoryStream of combined WAV File</returns>
         private MemoryStream _concatenate(IEnumerable<string> sourceFiles, SocketCommandContext context)
         {
             MemoryStream outStream = new MemoryStream();
@@ -62,7 +67,13 @@ namespace SvoxBot.Modules
             return outStream;
         }
 
-        // Split up the text and format it for the Concatinator to process
+        /// <summary>
+        /// Processes text, makes sure the WAV files exist and combines the WAV files
+        /// </summary>
+        /// <param name="collection">soundpack</param>
+        /// <param name="inputText">sentence that needs to be said</param>
+        /// <param name="context">SocketCommandContext for sending messages to discord channel</param>
+        /// <returns>MemoryStream of combined WAV files, null when error</returns>
         private MemoryStream _processText(string collection, string inputText, SocketCommandContext context)
         {
             string phrase = inputText;
@@ -74,7 +85,7 @@ namespace SvoxBot.Modules
             {
                 words[i] = $"{words[i]}.wav";
                 words[i] = Path.Combine(collection, words[i]);
-                
+
                 if (!File.Exists(words[i]))
                 {
                     missingWords.Add(words[i]);
@@ -160,8 +171,8 @@ namespace SvoxBot.Modules
             await ReplyAsync($"`{String.Join(", ", packs)}`");
         }
 
-        [Command("say")] // The actual command
-        public async Task svoxCommand([Remainder] string text)
+        [Command("say")]
+        public async Task say([Remainder] string text)
         {
             string[] words = text.Split(' ');
             string rest = text.Replace(words[0] + " ", "");
