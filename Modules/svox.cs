@@ -9,25 +9,74 @@ namespace SvoxBot.Modules
 {
     public class svox : ModuleBase<SocketCommandContext>
     {
-        [Command("help")]
-        public async Task help()
+        /// <summary>
+        /// SoundPack search directory
+        /// </summary>
+        private readonly string _soundPackSearchDirectory = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "soundpacks"));
+
+        /// <summary>
+        /// Checks whether directory is a valid soundpack
+        /// </summary>
+        /// <param name="directory">directory that needs to be checked</param>
+        /// <returns>whether directory is a valid soundpack</returns>
+        private bool _isValidSoundPack(string directory)
         {
-            await ReplyAsync("**SVOXBOT**: A Bot for Half-Life fans (ported to .Net Core)\n" +
-                             "Combines .wav files in the order that you specify, and uploads the file to Discord  \n\n" +
-                             "`!say [soundpack] [words words words]`: Generate a sound file \n" +
-                             "`!packs`: Show installed soundpacks \n" +
-                             "`!sounds [soundpack]`: Show sounds in a soundpack");
+            // make sure the directory exists & isn't empty
+            if (String.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+                return false;
+
+            // make sure we're not outside the search path
+            if (!Path.GetFullPath(directory).Contains(_soundPackSearchDirectory))
+                return false;
+
+            foreach (string file in Directory.GetFiles(directory))
+            {
+                if (file.ToLower().EndsWith(".wav"))
+                    return true;
+            }
+
+            return false;
         }
 
-        [Command("about")]
-        public async Task about()
+        /// <summary>
+        /// Builds an array of all soundpacks
+        /// </summary>
+        /// <returns>array of soundpacks</returns>
+        private string[] _getSoundPacks()
         {
-            await ReplyAsync("**SVOXBOT**: A Bot for Half-Life fans (ported to .Net Core)\n" +
-                             "Combines .wav files in the order that you specify, and uploads the file to Discord  \n\n" +
-                             "Created by Robin Universe \n" +
-                             "https://github.com/tim241/SvoxBot-Core \n");
+            List<string> packs = new List<string>();
+
+            foreach (string dir in Directory.GetDirectories(_soundPackSearchDirectory))
+            {
+                // make sure it's a valid soundpack
+                if (this._isValidSoundPack(Path.Combine(_soundPackSearchDirectory, dir)))
+                    packs.Add(Path.GetFileName(dir));
+            }
+
+            packs.Sort();
+            return packs.ToArray();
         }
 
+        /// <summary>
+        /// Gets sounds for pack
+        /// </summary>
+        /// <param name="pack">SoundPack</param>
+        /// <returns>sounds from pack</returns>
+        private string[] _getSounds(string pack)
+        {
+            if (!this._isValidSoundPack(pack))
+                return null;
+
+            List<string> sounds = new List<string>();
+            foreach (string sound in Directory.GetFiles(pack))
+            {
+                if (sound.ToLower().EndsWith(".wav"))
+                    sounds.Add(Path.GetFileNameWithoutExtension(sound));
+            }
+
+            sounds.Sort();
+            return sounds.ToArray();
+        }
 
         /// <summary>
         /// Combines multiple WAV files
@@ -80,11 +129,17 @@ namespace SvoxBot.Modules
             string[] words = phrase.Split(' ');
             List<string> missingWords = new List<string>();
             bool missing = false;
+            string soundPackDir = Path.Combine(_soundPackSearchDirectory, collection);
+
+            if (!this._isValidSoundPack(soundPackDir))
+            {
+                context.Channel.SendMessageAsync($"Invalid soundpack: `{collection}`");
+                return null;
+            }
 
             for (int i = 0; i < words.Length; i++)
             {
-                words[i] = $"{words[i]}.wav";
-                words[i] = Path.Combine(collection, words[i]);
+                words[i] = Path.Combine(soundPackDir, $"{words[i]}.wav");
 
                 if (!File.Exists(words[i]))
                 {
@@ -95,80 +150,124 @@ namespace SvoxBot.Modules
 
             if (missing)
             {
-                context.Channel.SendMessageAsync($"Missing File(s): `{String.Join(",", missingWords)}`");
+                context.Channel.SendMessageAsync($"Missing File(s): `{String.Join(", ", missingWords)}`");
                 return null;
             }
             else
             {
-                return this._concatenate(words, context);
+                try
+                {
+                    return this._concatenate(words, context);
+                }
+                catch (Exception e)
+                {
+                    context.Channel.SendMessageAsync($"`{e.Message}\n{e.StackTrace}`");
+                    return null;
+                }
             }
         }
 
-        [Command("sounds")]
-        public async Task soundsCommand([Remainder] string text)
+        /// <summary>
+        /// Sends array in chunks if needed
+        /// </summary>
+        /// <param name="seperator">String.Join seperator</param>
+        /// <param name="array">array of contents</param>
+        /// <param name="context">SocketCommandContext to send message</param>
+        private void _sendArrayInChunks(string seperator, string[] array, SocketCommandContext context)
         {
-            string[] words = text.Split(' ');
-            string folder = text.Replace(words[0] + " ", "");
+            int maxLength = 2000 - 2;
+            int charCount = 0;
+            string message = String.Join(seperator, array);
 
-            if (String.IsNullOrEmpty(folder) || !Directory.Exists(folder))
+            // when it's possible to send in one go, do it
+            if (message.Length < maxLength)
             {
-                await ReplyAsync("Folder not found!");
+                context.Channel.SendMessageAsync($"`{message}`");
                 return;
             }
 
-            List<string> files = new List<string>();
-            foreach (string file in Directory.GetFiles(folder))
+            // else just send in chunks as needed
+            message = null;
+            for (int i = 0; i < array.Length; i++)
             {
-                files.Add(Path.GetFileName(file));
+                charCount += array[i].Length + seperator.Length;
+                message += array[i] + seperator;
+
+                if ((charCount + (array[i + 1].Length + seperator.Length)) > maxLength)
+                {
+                    context.Channel.SendMessageAsync($"`{message}`").RunSynchronously();
+                    message = null;
+                    charCount = 0;
+                }
             }
 
-            string fileText = String.Join(",", files);
-            int maxLength = 2000 - 6;
-            if (fileText.Length > maxLength)
-            {
-                // send it in chunks
-                int charCount = 0;
-                fileText = null;
-                for (int i = 0; i < files.Count; i++)
-                {
-                    charCount += files[i].Length + 1;
-                    fileText += files[i] + ",";
+            // send remainder
+            if (!String.IsNullOrEmpty(message))
+                context.Channel.SendMessageAsync($"`{message}`").RunSynchronously();
+        }
 
-                    if ((charCount + (files[i + 1].Length + 1)) > maxLength)
-                    {
-                        await ReplyAsync($"```\n{fileText}```");
-                        fileText = null;
-                        charCount = 0;
-                    }
+        [Command("help")]
+        public async Task help()
+        {
+            await ReplyAsync("**SVOXBOT**: A Bot for Half-Life fans (ported to .Net Core)\n" +
+                             "Combines .wav files in the order that you specify, and uploads the file to Discord  \n\n" +
+                             "`!say [soundpack] [words words words]`: Generate a sound file \n" +
+                             "`!packs`: Show installed soundpacks \n" +
+                             "`!sounds [soundpack]`: Show sounds in a soundpack");
+        }
+
+        [Command("about")]
+        public async Task about()
+        {
+            await ReplyAsync("**SVOXBOT**: A Bot for Half-Life fans (ported to .Net Core)\n" +
+                             "Combines .wav files in the order that you specify, and uploads the file to Discord  \n\n" +
+                             "Created by Robin Universe \n" +
+                             "Enhanced by Tim Wanders\n" +
+                             "https://github.com/tim241/SvoxBot-Core \n");
+        }
+
+        [Command("sounds")]
+        public async Task sounds([Remainder] string text)
+        {
+            string[] words = text.Split(' ');
+            List<string> sounds = new List<string>();
+            List<string> invalidPacks = new List<string>();
+            bool invalidPacksFound = false;
+            string pack = null;
+
+            for (int i = 0; i < words.Length; i++)
+            {
+                pack = Path.Combine(_soundPackSearchDirectory, words[i]);
+                string[] packSounds = this._getSounds(pack);
+
+                if (packSounds == null)
+                {
+                    invalidPacks.Add(words[i]);
+                    invalidPacksFound = true;
                 }
 
-                // send remainder
-                if (!String.IsNullOrEmpty(fileText))
-                    await ReplyAsync($"```\n{fileText}```");
+                if (!invalidPacksFound)
+                    sounds.AddRange(packSounds);
             }
+
+            if (invalidPacksFound)
+                await ReplyAsync($"Invalid pack(s) `{String.Join(", ", invalidPacks)}`");
             else
-                await ReplyAsync($"```\n{String.Join(",", files)}```");
+            {
+                sounds.Sort();
+                this._sendArrayInChunks(", ", sounds.ToArray(), Context);
+            }
         }
 
         [Command("packs")]
-        public async Task packsCommand()
+        public async Task packs()
         {
-            var directories = Directory.GetDirectories(Environment.CurrentDirectory);
-            List<string> packs = new List<string>();
+            string[] soundPacks = this._getSoundPacks();
 
-            for (int i = 0; i < directories.Length; i++)
-            {
-                foreach (string file in Directory.GetFiles(directories[i]))
-                {
-                    if (file.EndsWith(".wav"))
-                    {
-                        packs.Add(Path.GetFileName(directories[i]));
-                        break;
-                    }
-                }
-            }
-
-            await ReplyAsync($"`{String.Join(", ", packs)}`");
+            if (soundPacks.Length == 0)
+                await ReplyAsync("no soundpacks found!");
+            else
+                this._sendArrayInChunks(", ", soundPacks, Context);
         }
 
         [Command("say")]
