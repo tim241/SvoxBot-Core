@@ -24,60 +24,45 @@ namespace SvoxBot
 
         public async Task RunBotAsync()
         {
-            _client = new DiscordSocketClient(new DiscordSocketConfig
-            {
-                LogLevel = LogSeverity.Info
-            });
+            _client = new DiscordSocketClient();
             _commands = new CommandService();
             _services = new ServiceCollection()
                 .AddSingleton(_client)
                 .AddSingleton(_commands)
                 .BuildServiceProvider();
 
-            await RegisterCommandsAsync();
-
+            await _registerCommandsAsync();
             await _client.LoginAsync(TokenType.Bot, this._token);
 
-            _client.Log += Log;
+            _client.Log += _log;
 
             await _client.StartAsync();
-
             await Task.Delay(-1);
-
         }
 
-        private Task Log(LogMessage message)
+        private Task _log(LogMessage message)
         {
-            Console.WriteLine(message.ToString() + System.Environment.NewLine);
+            Console.WriteLine($"[{message.Severity}] {message.Message}");
             return Task.CompletedTask;
         }
 
-        public async Task RegisterCommandsAsync()
+        public async Task _registerCommandsAsync()
         {
-            _client.MessageReceived += HandleCommandAsync;
+            _client.MessageReceived += _handleCommandAsync;
 
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), null);
         }
 
-        private async Task HandleCommandAsync(SocketMessage arg)
+        private async Task _handleCommandAsync(SocketMessage message)
         {
+            SocketUserMessage sMessage = (SocketUserMessage)message;
+            int messagePos = 0;
 
-            var message = arg as SocketUserMessage;
+            if (!sMessage.HasStringPrefix(this._prefix, ref messagePos))
+                return;
 
-            int argPos = 0;
-
-            if (message.HasStringPrefix(this._prefix, ref argPos) || message.HasMentionPrefix(_client.CurrentUser, ref argPos))
-            {
-                var context = new SocketCommandContext(_client, message);
-
-                var result = await _commands.ExecuteAsync(context, argPos, _services);
-
-                if (!result.IsSuccess)
-                {
-                    string error = "Invalid Command: " + message.ToString() + " by " + message.Author.ToString();
-                    Console.WriteLine(error + System.Environment.NewLine);
-                }
-            }
+            SocketCommandContext context = new SocketCommandContext(_client, sMessage);
+            await _commands.ExecuteAsync(context, messagePos, _services);
         }
     }
 }
