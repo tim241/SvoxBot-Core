@@ -17,20 +17,19 @@ combines .wav files in the order that you type them in discord.
 
 It's made to be able to recreate the VOX lines from Half-Life
 
-![alt](https://i.imgur.com/EoRCIrp.png)
+![alt](screenshot/screenshot1.png)
 
-syntax: { !play } { desired wav subfolder } {words, words, words}
+syntax:  `!play { desired wav subfolder } { words, words, words }`
 
-Right now all you need to do is to find your desired wav pack (Google is your friend) and extract it into a subfolder
+Right now all you need to do is to find your desired wav pack (Google is your friend) and extract it into a subfolder inside a `soundpacks` directory
 with something you won't mind typing to trigger the command, for example, I have a HEV folder for the hev lines, so when I want to trigger that I type 
 
-<!play hev hiss beep getmedkit>
+`!play hev hiss beep getmedkit`
 
 Each generated sound will be saved in the working folder seperately. I'll add the option to overwrite itself later. Just makes it easier to keep hold of good lines, but it is wasteful.
 
 Some notes:
 - You need to make sure you only use .WAV files that have the same bitrate and channels
-- I plan on allowing much more customization, but I thought I would get a more basic version out now rather than later
 
 Some goals:
 - Allow zipped soundpacks
