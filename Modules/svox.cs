@@ -7,11 +7,10 @@ using System.Threading.Tasks;
 
 namespace SvoxBot.Modules
 {
-    // Just a ping to see if the bot is working
     public class svox : ModuleBase<SocketCommandContext>
     {
         [Command("help")]
-        public async Task Test()
+        public async Task help()
         {
             await ReplyAsync("**SVOXBOT**: A Bot for Half-Life fans (ported to .Net Core)\n" +
                              "Combines .wav files in the order that you specify, and uploads the file to Discord  \n\n" +
@@ -31,9 +30,8 @@ namespace SvoxBot.Modules
 
 
         // Combine the .WAV files
-        private MemoryStream Concatenate(IEnumerable<string> sourceFiles, SocketCommandContext context)
+        private MemoryStream _concatenate(IEnumerable<string> sourceFiles, SocketCommandContext context)
         {
-            byte[] buffer = new byte[1024];
             MemoryStream outStream = new MemoryStream();
             WaveFileWriter writer = null;
             WaveFormat format = null;
@@ -65,7 +63,7 @@ namespace SvoxBot.Modules
         }
 
         // Split up the text and format it for the Concatinator to process
-        private MemoryStream processText(string collection, string inputText, SocketCommandContext context)
+        private MemoryStream _processText(string collection, string inputText, SocketCommandContext context)
         {
             string phrase = inputText;
             string[] words = phrase.Split(' ');
@@ -91,7 +89,7 @@ namespace SvoxBot.Modules
             }
             else
             {
-                return this.Concatenate(words, context);
+                return this._concatenate(words, context);
             }
         }
 
@@ -168,7 +166,7 @@ namespace SvoxBot.Modules
             string[] words = text.Split(' ');
             string rest = text.Replace(words[0] + " ", "");
 
-            using (MemoryStream stream = processText(words[0], rest, Context))
+            using (MemoryStream stream = this._processText(words[0], rest, Context))
             {
                 // check if failed
                 if (stream == null)
