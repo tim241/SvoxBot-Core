@@ -69,20 +69,30 @@ namespace SvoxBot.Modules
         {
             string phrase = inputText;
             string[] words = phrase.Split(' ');
+            List<string> missingWords = new List<string>();
+            bool missing = false;
 
             for (int i = 0; i < words.Length; i++)
             {
                 words[i] = $"{words[i]}.wav";
                 words[i] = Path.Combine(collection, words[i]);
-
-                if (!File.Exists(words[i])) // Checks for missing files
+                
+                if (!File.Exists(words[i]))
                 {
-                    context.Channel.SendMessageAsync($"File `{words[i]}` not found!");
-                    return null;
+                    missingWords.Add(words[i]);
+                    missing = true;
                 }
             }
 
-            return this.Concatenate(words, context); ;
+            if (missing)
+            {
+                context.Channel.SendMessageAsync($"Missing File(s): `{String.Join(",", missingWords)}`");
+                return null;
+            }
+            else
+            {
+                return this.Concatenate(words, context);
+            }
         }
 
         [Command("sounds")]
@@ -105,17 +115,17 @@ namespace SvoxBot.Modules
 
             string fileText = String.Join(",", files);
             int maxLength = 2000 - 6;
-            if(fileText.Length > maxLength)
+            if (fileText.Length > maxLength)
             {
                 // send it in chunks
                 int charCount = 0;
                 fileText = null;
-                for(int i = 0; i < files.Count; i++)
+                for (int i = 0; i < files.Count; i++)
                 {
                     charCount += files[i].Length + 1;
                     fileText += files[i] + ",";
 
-                    if((charCount + (files[i + 1].Length + 1)) > maxLength)
+                    if ((charCount + (files[i + 1].Length + 1)) > maxLength)
                     {
                         await ReplyAsync($"```\n{fileText}```");
                         fileText = null;
@@ -124,7 +134,7 @@ namespace SvoxBot.Modules
                 }
 
                 // send remainder
-                if(!String.IsNullOrEmpty(fileText))
+                if (!String.IsNullOrEmpty(fileText))
                     await ReplyAsync($"```\n{fileText}```");
             }
             else

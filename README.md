@@ -34,4 +34,3 @@ Some notes:
 
 Some goals:
 - Allow zipped soundpacks
-- Ability to show you all the words you messed up instead of just the first one
