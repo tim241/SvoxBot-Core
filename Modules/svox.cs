@@ -15,6 +15,11 @@ namespace SvoxBot.Modules
         private readonly string _soundPackSearchDirectory = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "soundpacks"));
 
         /// <summary>
+        /// Maximum upload file size in bytes
+        /// </summary>
+        private readonly Int64 _maxUploadFileSize = 8388119;
+
+        /// <summary>
         /// Checks whether directory is a valid soundpack
         /// </summary>
         /// <param name="directory">directory that needs to be checked</param>
@@ -107,6 +112,12 @@ namespace SvoxBot.Modules
                     }
 
                     reader.CopyTo(outStream);
+
+                    if (outStream.Length > this._maxUploadFileSize)
+                    {
+                        context.Channel.SendMessageAsync($"Combined WAV file too big for Discord!");
+                        return null;
+                    }
                 }
             }
 
@@ -155,15 +166,7 @@ namespace SvoxBot.Modules
             }
             else
             {
-                try
-                {
-                    return this._concatenate(words, context);
-                }
-                catch (Exception e)
-                {
-                    context.Channel.SendMessageAsync($"`{e.Message}\n{e.StackTrace}`");
-                    return null;
-                }
+                return this._concatenate(words, context);
             }
         }
 
